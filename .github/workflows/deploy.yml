@@ -12,7 +12,7 @@ on:
     paths:
       - 'terraform/**'
       - 'application/worker.js'
-  workflow_dispatch:  # allows manual trigger from the Actions tab
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,7 +25,6 @@ jobs:
   terraform:
     name: Terraform
     runs-on: ubuntu-latest
-    environment: production
 
     defaults:
       run:
@@ -41,10 +40,26 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
+      - name: Verify secrets are present
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is empty"
+            exit 1
+          fi
+          if [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID is empty"
+            exit 1
+          fi
+          echo "Both secrets are present (values hidden)"
+          echo "Account ID length: ${#CLOUDFLARE_ACCOUNT_ID}"
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Terraform Init
         run: terraform init -input=false
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
